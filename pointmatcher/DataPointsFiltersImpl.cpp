@@ -1213,7 +1213,7 @@ DataPointsFiltersImpl<T>::SimpleSensorNoiseDataPointsFilter::SimpleSensorNoiseDa
 	sensorType(Parametrizable::get<unsigned>("sensorType")),
 	gain(Parametrizable::get<T>("gain"))
 {
-	std::vector<string> sensorNames = boost::assign::list_of ("Sick LMS-1xx")("Hokuyo URG-04LX")("Hokuyo UTM-30LX")("Kinect / Xtion");
+  std::vector<string> sensorNames = boost::assign::list_of ("Sick LMS-1xx")("Hokuyo URG-04LX")("Hokuyo UTM-30LX")("Kinect / Xtion")("Sick Tim3xx");
 	if (sensorType >= sensorNames.size())
 	{
 		throw InvalidParameter(
@@ -1267,6 +1267,11 @@ void DataPointsFiltersImpl<T>::SimpleSensorNoiseDataPointsFilter::inPlaceFilter(
 		noise = squaredValues*(0.5*0.00285);
 		break;
 	}
+  case 4: // Sick Tim3xx
+  {
+    noise = computeLaserNoise(0.004, 0.0053, -0.0092, cloud.features);
+    break;
+  }
 	default:
 		throw InvalidParameter(
 			(boost::format("SimpleSensorNoiseDataPointsFilter: Error, cannot compute noise for sensorType id %1% .") % sensorType).str());
@@ -1382,7 +1387,7 @@ typename PointMatcher<T>::DataPoints DataPointsFiltersImpl<T>::VoxelGridDataPoin
 template <typename T>
 void DataPointsFiltersImpl<T>::VoxelGridDataPointsFilter::inPlaceFilter(DataPoints& cloud)
 {
-    const int numPoints(cloud.features.cols());
+    const unsigned int numPoints(cloud.features.cols());
 	const int featDim(cloud.features.rows());
 	const int descDim(cloud.descriptors.rows());
 
@@ -1453,7 +1458,7 @@ void DataPointsFiltersImpl<T>::VoxelGridDataPointsFilter::inPlaceFilter(DataPoin
     }
 
 
-    for (int p = 0; p < numPoints; p++ )
+    for (unsigned int p = 0; p < numPoints; p++ )
     {
         unsigned int i = floor(cloud.features(0,p)/vSizeX - minBoundX);
         unsigned int j = floor(cloud.features(1,p)/vSizeY- minBoundY);
@@ -1489,7 +1494,7 @@ void DataPointsFiltersImpl<T>::VoxelGridDataPointsFilter::inPlaceFilter(DataPoin
     if (useCentroid)
     {
         // Iterate through the indices and sum values to compute centroid
-        for (int p = 0; p < numPoints ; p++)
+        for (unsigned int p = 0; p < numPoints ; p++)
         {
             unsigned int idx = indices[p];
             unsigned int firstPoint = (*voxels)[idx].firstPoint;
@@ -1517,7 +1522,7 @@ void DataPointsFiltersImpl<T>::VoxelGridDataPointsFilter::inPlaceFilter(DataPoin
         // Now iterating through the voxels
         // Normalize sums to get centroid (average)
         // Some voxels may be empty and are discarded
-        for( int idx = 0; idx < numVox; idx++)
+        for(unsigned int idx = 0; idx < numVox; idx++)
         {
             unsigned int numPoints = (*voxels)[idx].numPoints;
             unsigned int firstPoint = (*voxels)[idx].firstPoint;
@@ -1541,7 +1546,7 @@ void DataPointsFiltersImpl<T>::VoxelGridDataPointsFilter::inPlaceFilter(DataPoin
     	if (averageExistingDescriptors)
     	{
     		// Iterate through the indices and sum values to compute centroid
-    		for (int p = 0; p < numPoints ; p++)
+    		for (unsigned int p = 0; p < numPoints ; p++)
     		{
     			unsigned int idx = indices[p];
     			unsigned int firstPoint = (*voxels)[idx].firstPoint;
@@ -1558,7 +1563,7 @@ void DataPointsFiltersImpl<T>::VoxelGridDataPointsFilter::inPlaceFilter(DataPoin
     		}
     	}
 
-        for (int idx = 0; idx < numVox; idx++)
+        for (unsigned int idx = 0; idx < numVox; idx++)
         {
             unsigned int numPoints = (*voxels)[idx].numPoints;
             unsigned int firstPoint = (*voxels)[idx].firstPoint;
@@ -1627,3 +1632,72 @@ void DataPointsFiltersImpl<T>::VoxelGridDataPointsFilter::inPlaceFilter(DataPoin
 
 template struct DataPointsFiltersImpl<float>::VoxelGridDataPointsFilter;
 template struct DataPointsFiltersImpl<double>::VoxelGridDataPointsFilter;
+
+
+// CutAtDescriptorThresholdDataPointsFilter
+// Constructor
+template<typename T>
+DataPointsFiltersImpl<T>::CutAtDescriptorThresholdDataPointsFilter::CutAtDescriptorThresholdDataPointsFilter(const Parameters& params):
+	DataPointsFilter("CutAtDescriptorThresholdDataPointsFilter", CutAtDescriptorThresholdDataPointsFilter::availableParameters(), params),
+	descName(Parametrizable::get<std::string>("descName")),
+	useLargerThan(Parametrizable::get<bool>("useLargerThan")),
+	threshold(Parametrizable::get<T>("threshold"))
+{
+}
+
+// Compute
+template<typename T>
+typename PointMatcher<T>::DataPoints DataPointsFiltersImpl<T>::CutAtDescriptorThresholdDataPointsFilter::filter(
+	const DataPoints& input)
+{
+	DataPoints output(input);
+	inPlaceFilter(output);
+	return output;
+}
+
+// In-place filter
+template<typename T>
+void DataPointsFiltersImpl<T>::CutAtDescriptorThresholdDataPointsFilter::inPlaceFilter(
+	DataPoints& cloud)
+{
+	// Check field exists
+	if (!cloud.descriptorExists(descName))
+	{
+		throw InvalidField("CutAtDescriptorThresholdDataPointsFilter: Error, field not found in descriptors.");
+	}
+
+	const int nbPointsIn = cloud.features.cols();
+	typename DataPoints::View values = cloud.getDescriptorViewByName(descName);
+
+	// fill cloud values
+	int j = 0;
+	if (useLargerThan)
+	{
+		for (int i = 0; i < nbPointsIn; i++)
+		{
+			const T value(values(0,i));
+			if (value <= threshold)
+			{
+				cloud.setColFrom(j, cloud, i);
+				j++;
+			}
+		}
+	}
+	else
+	{
+		for (int i = 0; i < nbPointsIn; i++)
+		{
+			const T value(values(0,i));
+			if (value >= threshold)
+			{
+				cloud.setColFrom(j, cloud, i);
+				j++;
+			}
+		}
+	}
+	cloud.conservativeResize(j);
+}
+
+template struct DataPointsFiltersImpl<float>::CutAtDescriptorThresholdDataPointsFilter;
+template struct DataPointsFiltersImpl<double>::CutAtDescriptorThresholdDataPointsFilter;
+

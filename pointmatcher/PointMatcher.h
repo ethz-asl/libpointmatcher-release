@@ -56,9 +56,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "Parametrizable.h"
 #include "Registrar.h"
-
-#if NABO_VERSION_INT < 10001
-	#error "You need libnabo version 1.0.1 or greater"
+ 
+#if NABO_VERSION_INT < 10006
+	#error "You need libnabo version 1.0.6 or greater"
 #endif
 
 /*! 
@@ -68,9 +68,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 //! version of the Pointmatcher library as string
-#define POINTMATCHER_VERSION "1.2.1"
+#define POINTMATCHER_VERSION "1.2.3"
 //! version of the Pointmatcher library as an int
-#define POINTMATCHER_VERSION_INT 10201
+#define POINTMATCHER_VERSION_INT 10203
 
 //! Functions and classes that are not dependant on scalar type are defined in this namespace
 namespace PointMatcherSupport
@@ -237,7 +237,13 @@ struct PointMatcher
 		DataPoints(const Matrix& features, const Labels& featureLabels);
 		DataPoints(const Matrix& features, const Labels& featureLabels, const Matrix& descriptors, const Labels& descriptorLabels);
 		bool operator ==(const DataPoints& that) const;
-		
+	
+		unsigned getNbPoints() const;
+		unsigned getEuclideanDim() const;
+		unsigned getHomogeneousDim() const;
+		unsigned getNbGroupedDescriptors() const;
+		unsigned getDescriptorDim() const;
+
 		void save(const std::string& fileName) const;
 		static DataPoints load(const std::string& fileName);
 		
@@ -250,6 +256,7 @@ struct PointMatcher
 		void allocateFeature(const std::string& name, const unsigned dim);
 		void allocateFeatures(const Labels& newLabels);
 		void addFeature(const std::string& name, const Matrix& newFeature);
+		void removeFeature(const std::string& name);
 		Matrix getFeatureCopyByName(const std::string& name) const;
 		ConstView getFeatureViewByName(const std::string& name) const;
 		View getFeatureViewByName(const std::string& name);
@@ -263,6 +270,7 @@ struct PointMatcher
 		void allocateDescriptor(const std::string& name, const unsigned dim);
 		void allocateDescriptors(const Labels& newLabels);
 		void addDescriptor(const std::string& name, const Matrix& newDescriptor);
+		void removeDescriptor(const std::string& name);
 		Matrix getDescriptorCopyByName(const std::string& name) const;
 		ConstView getDescriptorViewByName(const std::string& name) const;
 		View getDescriptorViewByName(const std::string& name);
@@ -283,6 +291,7 @@ struct PointMatcher
 		void allocateFields(const Labels& newLabels, Labels& labels, Matrix& data) const;
 		void allocateField(const std::string& name, const unsigned dim, Labels& labels, Matrix& data) const;
 		void addField(const std::string& name, const Matrix& newField, Labels& labels, Matrix& data) const;
+		void removeField(const std::string& name, Labels& labels, Matrix& data) const;
 		ConstView getConstViewByName(const std::string& name, const Labels& labels, const Matrix& data, const int viewRow = -1) const;
 		View getViewByName(const std::string& name, const Labels& labels, Matrix& data, const int viewRow = -1) const;
 		bool fieldExists(const std::string& name, const unsigned dim, const Labels& labels) const;
@@ -597,16 +606,16 @@ struct PointMatcher
 		
 		void cleanup();
 		
-        virtual void loadAdditionalYAMLContent(YAML::Node& doc);
+        virtual void loadAdditionalYAMLContent(PointMatcherSupport::YAML::Node& doc);
 		
 		template<typename R>
-        const std::string& createModulesFromRegistrar(const std::string& regName, const YAML::Node& doc, const R& registrar, PointMatcherSupport::SharedPtrVector<typename R::TargetType>& modules);
+        const std::string& createModulesFromRegistrar(const std::string& regName, const PointMatcherSupport::YAML::Node& doc, const R& registrar, PointMatcherSupport::SharedPtrVector<typename R::TargetType>& modules);
 		
 		template<typename R>
-        const std::string& createModuleFromRegistrar(const std::string& regName, const YAML::Node& doc, const R& registrar, boost::shared_ptr<typename R::TargetType>& module);
+        const std::string& createModuleFromRegistrar(const std::string& regName, const PointMatcherSupport::YAML::Node& doc, const R& registrar, boost::shared_ptr<typename R::TargetType>& module);
 		
 		/*template<typename R>
-		typename R::TargetType* createModuleFromRegistrar(const YAML::Node& module, const R& registrar);*/
+		typename R::TargetType* createModuleFromRegistrar(const PointMatcherSupport::YAML::Node& module, const R& registrar);*/
 	};
 	
 	//! ICP algorithm
@@ -635,6 +644,7 @@ struct PointMatcher
 	};
 	
 	//! ICP alogrithm, taking a sequence of clouds and using a map
+	//! Warning: used with caution, you need to set the map manually.
 	struct ICPSequence: public ICP
 	{
 		TransformationParameters operator()(

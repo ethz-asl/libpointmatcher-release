@@ -48,20 +48,103 @@ struct PointMatcherIO
 	typedef typename PointMatcher<T>::TransformationParameters TransformationParameters; //!< alias
 	typedef typename PointMatcher<T>::Matrix Parameters; //!< alias
 	typedef typename PointMatcher<T>::DataPoints::Label Label; //!< alias
+	typedef typename PointMatcher<T>::DataPoints::Labels Labels; //!< alias
 
-	//! Pair descriptor column, descriptor name
-	typedef std::pair<int, std::string >DescAssociationPair;
+	//! Pair feature column, feature name
+	typedef std::pair<int, std::string >LabelAssociationPair;
 
 	//! Map to associate common descriptor sublabels to PM descriptor matrix row and labels
 	//! ex: nx, ny, nz are associated with (0,normals) (1,normals) (2,normals) respectively
-	typedef std::map<std::string, DescAssociationPair > DescAssociationMap;
+	typedef std::map<std::string, LabelAssociationPair > SublabelAssociationMap;
 
 	// General
-	static DescAssociationMap getDescAssocationMap(); //!< map to store association between common 1d descriptor labels and their PM label and span dimension
-	static bool colLabelRegistered(const std::string& colLabel); //!< returns true if a particular descriptor dim label is registered (ie nx, red...)
-	static DescAssociationPair getDescAssociationPair(const std::string& colLabel); //!< get PM descriptor label associated with sublabel colLabel
+	static SublabelAssociationMap getFeatAssocationMap(); //!< map to store association between common 1d feature labels and their PM label and span dimension
+	static SublabelAssociationMap getDescAssocationMap(); //!< map to store association between common 1d descriptor labels and their PM label and span dimension
+	static bool featSublabelRegistered(const std::string& externalName); //!< returns true if a particular feature dim label is registered (ie x, y...)
+	static bool descSublabelRegistered(const std::string& externalName); //!< returns true if a particular descriptor dim label is registered (ie nx, red...)
+	static LabelAssociationPair getFeatAssociationPair(const std::string& externalName); //!< get PM feature label associated with sublabel
+	static LabelAssociationPair getDescAssociationPair(const std::string& externalName); //!< get PM descriptor label associated with sublabel
 
 	static std::string getColLabel(const Label& label, const int row); //!< convert a descriptor label to an appropriate sub-label
+	
+	//! Type of information in a DataPoints. Each type is stored in its own dense matrix.
+	enum PMPropTypes
+		{
+			FEATURE,
+			DESCRIPTOR,
+			UNSUPPORTED
+		};//TODO: add time here too
+
+	//! Structure containing all information required to map external information to PointMatcher internal representation
+	struct SupportedLabel
+	{
+		std::string internalName; //!< name used in PointMatcher
+		std::string externalName; //!< name used in external format
+		PMPropTypes type; //!< type of information in PointMatcher
+
+		//! Constructor
+		SupportedLabel(const std::string& internalName, const std::string& externalName, const PMPropTypes& type);
+	};
+
+	//! Vector of supported labels in PointMatcher and their external names
+	typedef std::vector<SupportedLabel> SupportedLabels;
+
+	//! Vector containing the mapping of all external names to PointMatcher representation.
+	//! The order is important (i.e., nx before ny). This can also be used to remap 
+	//! 1D descriptor name to a better one.
+	static const SupportedLabels & getSupportedExternalLabels()
+	{
+		//Can be read:
+		// (internalName, externalName, type)
+		const static SupportedLabels labels = boost::assign::list_of<SupportedLabel>
+			("x", "x", FEATURE)
+			("y", "y", FEATURE)
+			("z", "z", FEATURE)
+			("pad", "pad", FEATURE)
+			("normals", "nx", DESCRIPTOR)
+			("normals", "ny", DESCRIPTOR)
+			("normals", "nz", DESCRIPTOR)
+			("normals", "normal_x", DESCRIPTOR)
+			("normals", "normal_y", DESCRIPTOR)
+			("normals", "normal_z", DESCRIPTOR)
+			("color", "red", DESCRIPTOR)
+			("color", "green", DESCRIPTOR)
+			("color", "blue", DESCRIPTOR)
+			("color", "alpha", DESCRIPTOR)
+			("eigValues", "eigValues0", DESCRIPTOR)
+			("eigValues", "eigValues1", DESCRIPTOR)
+			("eigValues", "eigValues2", DESCRIPTOR)
+			("eigVectors", "eigVectors0X", DESCRIPTOR)
+			("eigVectors", "eigVectors0Y", DESCRIPTOR)
+			("eigVectors", "eigVectors0Z", DESCRIPTOR)
+			("eigVectors", "eigVectors1X", DESCRIPTOR)
+			("eigVectors", "eigVectors1Y", DESCRIPTOR)
+			("eigVectors", "eigVectors1Z", DESCRIPTOR)
+			("eigVectors", "eigVectors2X", DESCRIPTOR)
+			("eigVectors", "eigVectors2Y", DESCRIPTOR)
+			("eigVectors", "eigVectors2Z", DESCRIPTOR)
+			//("", "", DESCRIPTOR)
+			;
+
+			return labels;
+	}
+
+	//! Generate a vector of Labels by checking for collision is the same name is reused.
+	class LabelGenerator
+	{
+		Labels labels; //!< vector of labels used to cumulat information
+
+	public:
+		//! add a name to the vector of labels. If already there, will increament the dimension.
+		void add(std::string internalName);
+
+		//! Return the vector of labels used to build a DataPoints
+		Labels getLabels() const;
+	};
+
+
+	//! Associate an external name to a DataPoints type of information
+	static PMPropTypes getPMType(const std::string& externalName); //! Return the type of information specific to a DataPoints based on a sulabel name
 
 	// CSV
 	static DataPoints loadCSV(const std::string& fileName);
@@ -135,12 +218,18 @@ struct PointMatcherIO
 	//! Interface for PLY property
 	struct PLYProperty
 	{
-
+		//PLY information:
 		std::string name; //!< name of PLY property
 		std::string type; //!< type of PLY property
 		std::string idx_type; //!< for list properties, type of number of elements
 		unsigned pos; //!< index of the property in element
 		bool is_list; //!< member is true of property is a list
+		
+		//PointMatcher information:
+		PMPropTypes pmType; //!< type of information in PointMatcher
+		int pmRowID; //!< row id used in a DataPoints 
+
+		//TODO: remove that (now pmType):
 		bool is_feature; //!<member is true if is a PM feature, if not, it is a descriptor
 
 		PLYProperty() { } //!< Default constructor. If used member values must be filled later.
@@ -156,10 +245,15 @@ struct PointMatcherIO
 
 	//! Map from a descriptor name to a list PLY property
 	//! ex: "normals" -> nx, ny ,nz
-
 	typedef std::map<std::string, std::vector<PLYProperty> > PLYDescPropMap;
+	
+	//! Vector of properties specific to PLY files
+	typedef std::vector<PLYProperty> PLYProperties;
 
-	//! Interface for all PLY elements.  Implementations must provide definition of getPMType()
+	//! Iterator for a vector of PLY properties
+	typedef typename PLYProperties::iterator it_PLYProp;
+
+	//! Interface for all PLY elements. 
 	class PLYElement
 	{
 	public:
@@ -167,6 +261,10 @@ struct PointMatcherIO
 		unsigned num; //!< number of occurences of the element
 		unsigned total_props; //!< total number of properties in PLY element
 		unsigned offset; //!< line at which data starts
+		PLYProperties properties; //!< all properties found in the header
+		unsigned nbFeatures; //!< number of valid features found in the header
+		unsigned nbDescriptors; //!< number of valid descriptors found in the header
+
 
 		//! PLY Element constructor
 		/**
@@ -178,44 +276,13 @@ struct PointMatcherIO
 			It is filled out when reading the header and used when parsing the data.
 		 */
 		PLYElement(const std::string& name, const unsigned num, const unsigned offset) :
-			name(name), num(num), total_props(0), offset(offset) {}
+			name(name), num(num), total_props(0), offset(offset), nbFeatures(0), nbDescriptors(0) {}
 
 		bool supportsProperty(const PLYProperty& prop) const; //!< Returns true if property pro is supported by element
 
 		void addProperty(PLYProperty& prop); //!< add a property to vector of properties
 
-		const std::vector<PLYProperty>& getFeatureProps() const; //!< return vector of feature properties
-
-		const std::vector<PLYProperty>& getDescriptorProps() const; //!< return vector of descriptor properties
-
-		const PLYDescPropMap& getDescPropMap() const; //!< return map, descriptor name -> vector of PLY desc properties
-
-		size_t getNumSupportedProperties() const; //!< return number of properties
-
-		int getNumFeatures() const; //!< get number of PM supported feature properties
-
-		int getNumDescriptors() const; //!< get number of PM descriptors in element
-
-		int getNumDescProp() const; //!< get number of PM supported descriptor properties
-
 		bool operator==(const PLYElement& other) const; //!< comparison operator for elements
-
-	protected:
-		//! possible properties: either a libpointmatcher feature, descriptor, or it is unsupported and will be ignored
-		enum PMPropTypes
-		{
-			FEATURE,
-			DESCRIPTOR,
-			UNSUPPORTED
-		};
-
-		std::vector<PLYProperty> features; //!< Vector which holds element properties corresponding to PM features
-		std::vector<PLYProperty> descriptors; //!< Vector which holds element properties corresponding to PM features
-		PLYDescPropMap descriptor_map; //!< Map descriptor -> descriptor PLY property
-
-		virtual PMPropTypes getPMType(const PLYProperty& prop) const = 0; //!< return the relation to pointmatcher
-
-		//virtual std::string getDescName(const PLYProperty& prop) const = 0; //!< for descriptor properties return name of pointmatcher descriptor
 
 	};
 
@@ -233,9 +300,6 @@ struct PointMatcherIO
 		 */
 		PLYVertex(const unsigned num, const unsigned offset) : PLYElement("vertex", num, offset) {}
 
-		typename PLYElement::PMPropTypes getPMType(const PLYProperty& prop) const; //! implements element interface
-
-		//typename std::string getDescName(const PLYProperty& prop) const; //! implements element interface
 	};
 
 	//! Factory for PLY elements

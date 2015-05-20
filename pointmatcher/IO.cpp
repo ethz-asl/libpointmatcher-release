@@ -406,115 +406,192 @@ typename PointMatcher<T>::DataPoints PointMatcherIO<T>::loadCSV(const std::strin
 	return loadCSV(ifs);
 }
 
+template<typename T>
+PointMatcherIO<T>::SupportedLabel::SupportedLabel(const std::string& internalName, const std::string& externalName, const PMPropTypes& type):
+	internalName(internalName),
+	externalName(externalName),
+	type(type)
+{
+}
 
 template<typename T>
-typename PointMatcherIO<T>::DescAssociationMap PointMatcherIO<T>::getDescAssocationMap()
+typename PointMatcherIO<T>::SublabelAssociationMap PointMatcherIO<T>::getFeatAssocationMap()
 {
-	DescAssociationMap assoc_map = boost::assign::map_list_of
-			("nx", DescAssociationPair(0,"normals"))
-			("ny", DescAssociationPair(1,"normals"))
-			("nz", DescAssociationPair(2,"normals"))
-			("normal_x", DescAssociationPair(0,"normals"))
-			("normal_y", DescAssociationPair(1,"normals"))
-			("normal_z", DescAssociationPair(2,"normals"))
-			("densities", DescAssociationPair(0,"densities"))
-			("intensity", DescAssociationPair(0,"intensity"))
-			("red", DescAssociationPair(0,"color"))
-			("green", DescAssociationPair(1,"color"))
-			("blue", DescAssociationPair(2,"color"))
-			("alpha", DescAssociationPair(3,"color"))
-			("eigValues0", DescAssociationPair(0,"eigValues"))
-			("eigValues1", DescAssociationPair(1,"eigValues"))
-			("eigValues2", DescAssociationPair(2,"eigValues"))
-			("eigVectors0X", DescAssociationPair(0,"eigVectors"))
-			("eigVectors0Y", DescAssociationPair(1,"eigVectors"))
-			("eigVectors0Z",DescAssociationPair(2,"eigVectors"))
-			("eigVectors1X", DescAssociationPair(3,"eigVectors"))
-			("eigVectors1Y", DescAssociationPair(4,"eigVectors"))
-			("eigVectors1Z",DescAssociationPair(5,"eigVectors"))
-			("eigVectors2X", DescAssociationPair(6,"eigVectors"))
-			("eigVectors2Y", DescAssociationPair(7,"eigVectors"))
-			("eigVectors2Z",DescAssociationPair(8,"eigVectors"))
-			("normals", DescAssociationPair(0,"normals"))
-			("eigValues", DescAssociationPair(0,"eigValues"))
-			("eigVectors", DescAssociationPair(0,"eigVectors"))
-			("color", DescAssociationPair(0,"color"));
+	const SublabelAssociationMap assoc_map = boost::assign::map_list_of
+			("x", LabelAssociationPair(0,"x"))
+			("y", LabelAssociationPair(1,"y"))
+			("z", LabelAssociationPair(2,"z"))
+			("pad", LabelAssociationPair(3,"pad"));
+	return assoc_map;
+}
+
+template<typename T>
+typename PointMatcherIO<T>::SublabelAssociationMap PointMatcherIO<T>::getDescAssocationMap()
+{
+	const SublabelAssociationMap assoc_map = boost::assign::map_list_of
+			("nx", LabelAssociationPair(0,"normals"))
+			("ny", LabelAssociationPair(1,"normals"))
+			("nz", LabelAssociationPair(2,"normals"))
+			("normal_x", LabelAssociationPair(0,"normals"))
+			("normal_y", LabelAssociationPair(1,"normals"))
+			("normal_z", LabelAssociationPair(2,"normals"))
+			("densities", LabelAssociationPair(0,"densities"))
+			("intensity", LabelAssociationPair(0,"intensity"))
+			("red", LabelAssociationPair(0,"color"))
+			("green", LabelAssociationPair(1,"color"))
+			("blue", LabelAssociationPair(2,"color"))
+			("alpha", LabelAssociationPair(3,"color"))
+			("eigValues0", LabelAssociationPair(0,"eigValues"))
+			("eigValues1", LabelAssociationPair(1,"eigValues"))
+			("eigValues2", LabelAssociationPair(2,"eigValues"))
+			("eigVectors0X", LabelAssociationPair(0,"eigVectors"))
+			("eigVectors0Y", LabelAssociationPair(1,"eigVectors"))
+			("eigVectors0Z",LabelAssociationPair(2,"eigVectors"))
+			("eigVectors1X", LabelAssociationPair(3,"eigVectors"))
+			("eigVectors1Y", LabelAssociationPair(4,"eigVectors"))
+			("eigVectors1Z",LabelAssociationPair(5,"eigVectors"))
+			("eigVectors2X", LabelAssociationPair(6,"eigVectors"))
+			("eigVectors2Y", LabelAssociationPair(7,"eigVectors"))
+			("eigVectors2Z",LabelAssociationPair(8,"eigVectors"))
+			("normals", LabelAssociationPair(0,"normals"))
+			("eigValues", LabelAssociationPair(0,"eigValues"))
+			("eigVectors", LabelAssociationPair(0,"eigVectors"))
+			("color", LabelAssociationPair(0,"color"));
 	return assoc_map;
 }
 
 template <typename T>
-bool PointMatcherIO<T>::colLabelRegistered(const std::string& colLabel)
+bool PointMatcherIO<T>::featSublabelRegistered(const std::string& externalName)
 {
-	return getDescAssocationMap().count(colLabel) > 0;
+	return getFeatAssocationMap().count(externalName) > 0;
 }
 
 template <typename T>
-typename PointMatcherIO<T>::DescAssociationPair PointMatcherIO<T>::getDescAssociationPair(const std::string& colLabel)
+bool PointMatcherIO<T>::descSublabelRegistered(const std::string& externalName)
 {
-	return getDescAssocationMap().find(colLabel)->second;
+	return getDescAssocationMap().count(externalName) > 0;
 }
 
 template <typename T>
+typename PointMatcherIO<T>::LabelAssociationPair PointMatcherIO<T>::getFeatAssociationPair(const std::string& externalName)
+{
+	return getFeatAssocationMap().find(externalName)->second;
+}
+
+template <typename T>
+typename PointMatcherIO<T>::LabelAssociationPair PointMatcherIO<T>::getDescAssociationPair(const std::string& externalName)
+{
+	return getDescAssocationMap().find(externalName)->second;
+}
+
+template<typename T>
+typename PointMatcherIO<T>::PMPropTypes PointMatcherIO<T>::getPMType(const std::string& externalName)
+{
+	if (featSublabelRegistered(externalName))
+		return FEATURE;
+	else if (descSublabelRegistered(externalName))
+		return DESCRIPTOR;
+	else
+		return UNSUPPORTED;
+	//TODO: add time here
+}
+
+// Class LabelGenerator
+template<typename T>
+void PointMatcherIO<T>::LabelGenerator::add(std::string internalName)
+{
+	bool findLabel = false;
+	for(size_t i=0; i<labels.size(); ++i)
+	{
+		if(internalName == labels[i].text)
+		{
+			labels[i].span++;
+			findLabel = true;
+			break;
+		}
+		
+	}
+
+	if(!findLabel)
+	{
+		labels.push_back(Label(internalName,1));
+	}
+}
+
+// Class LabelGenerator
+template<typename T>
+typename PointMatcher<T>::DataPoints::Labels PointMatcherIO<T>::LabelGenerator::getLabels() const
+{
+	return labels;
+}
+
+template
+class PointMatcherIO<float>::LabelGenerator;
+template
+class PointMatcherIO<double>::LabelGenerator;
+template <typename T>
+
+
 std::string PointMatcherIO<T>::getColLabel(const Label& label, const int row)
 {
-	std::string colLabel;
+	std::string externalName;
 	if (label.text == "normals")
 	{
 		if (row == 0)
 		{
-			colLabel = "nx";
+			externalName = "nx";
 		}
 		if (row == 1)
 		{
-			colLabel = "ny";
+			externalName = "ny";
 		}
 		if (row == 2)
 		{
-			colLabel = "nz";
+			externalName = "nz";
 		}
 	}
 	else if (label.text == "color")
 	{
 		if (row == 0)
 		{
-			colLabel = "red";
+			externalName = "red";
 		}
 		if (row == 1)
 		{
-			colLabel = "green";
+			externalName = "green";
 		}
 		if (row == 2)
 		{
-			colLabel = "blue";
+			externalName = "blue";
 		}
 		if (row == 3)
-			colLabel = "alpha";
+			externalName = "alpha";
 	}
 	else if (label.text == "eigValues")
 	{
-		colLabel = "eigValues" + boost::lexical_cast<string>(row);
+		externalName = "eigValues" + boost::lexical_cast<string>(row);
 	}
 	else if (label.text == "eigVectors")
 	{
 		// format: eigVectors<0-2><X-Z>
-		colLabel = "eigVectors" + boost::lexical_cast<string>(row/3);
+		externalName = "eigVectors" + boost::lexical_cast<string>(row/3);
 
 		int row_mod = row % 3;
 		if (row_mod == 0)
-			colLabel += "X";
+			externalName += "X";
 		else if (row_mod == 1)
-			colLabel += "Y";
+			externalName += "Y";
 		else if (row_mod == 2)
-			colLabel += "Z";
+			externalName += "Z";
 	}
 	else if (label.span  == 1)
 	{
-		colLabel = label.text;
+		externalName = label.text;
 	}
 	else
-		colLabel = label.text + boost::lexical_cast<std::string>(row);
+		externalName = label.text + boost::lexical_cast<std::string>(row);
 
-	return colLabel;
+	return externalName;
 }
 
 
@@ -523,8 +600,8 @@ std::string PointMatcherIO<T>::getColLabel(const Label& label, const int row)
 template<typename T>
 typename PointMatcher<T>::DataPoints PointMatcherIO<T>::loadCSV(std::istream& is)
 {
-	typedef typename DataPoints::Label Label;
-	typedef typename DataPoints::Labels Labels;
+	//typedef typename DataPoints::Label Label;
+	//typedef typename DataPoints::Labels Labels;
 	
 	vector<T> xData;
 	vector<T> yData;
@@ -533,7 +610,7 @@ typename PointMatcher<T>::DataPoints PointMatcherIO<T>::loadCSV(std::istream& is
 	vector<string> header;
 	vector<int> descColsToKeep; // Record of which columns will be read into a descriptor
 
-	map<int,DescAssociationPair> colToDescPair;
+	map<int,LabelAssociationPair> colToDescPair;
 	map<string,int> descLabelToNumRows;
 	map<string,int> descLabelToStartingRows;
 
@@ -606,10 +683,10 @@ typename PointMatcher<T>::DataPoints PointMatcherIO<T>::loadCSV(std::istream& is
 					if(colLabel.compare("z") == 0)
 						zCol = i;
 
-					if(colLabelRegistered(colLabel))
+					if(descSublabelRegistered(colLabel))
 					{
 						descColsToKeep.push_back(i);
-						DescAssociationPair associationPair = getDescAssociationPair(colLabel);
+						LabelAssociationPair associationPair = getDescAssociationPair(colLabel);
 
 						colToDescPair[i] = associationPair;
 						descLabelToNumRows[associationPair.second]++;
@@ -696,7 +773,7 @@ typename PointMatcher<T>::DataPoints PointMatcherIO<T>::loadCSV(std::istream& is
 					zData.push_back(atof(token));
 				if(currentCol == nextDescCol)
 				{
-					DescAssociationPair descPair = colToDescPair[nextDescCol];
+					LabelAssociationPair descPair = colToDescPair[nextDescCol];
 					int startingRow = descLabelToStartingRows[descPair.second];
 					descCols[startingRow + descPair.first].push_back(atof(token));
 					d++;
@@ -840,10 +917,10 @@ void PointMatcherIO<T>::saveCSV(const DataPoints& data, std::ostream& os)
 	}
 
 	int n = 0;
-	for (int i = 0; i < data.descriptorLabels.size(); i++)
+	for (size_t i = 0; i < data.descriptorLabels.size(); i++)
 	{
 		Label lab = data.descriptorLabels[i];
-		for (int s = 0; s < lab.span; s++)
+		for (size_t s = 0; s < lab.span; s++)
 		{
 			os << getColLabel(lab,s);
 			if (n != (descDimCount - 1))
@@ -1184,12 +1261,32 @@ PointMatcherIO<double>::DataPoints PointMatcherIO<double>::loadPLY(const string&
 template <typename T>
 typename PointMatcherIO<T>::DataPoints PointMatcherIO<T>::loadPLY(std::istream& is)
 {
-	typedef typename DataPoints::Label Label;
-	typedef typename DataPoints::Labels Labels;
+	//typedef typename DataPoints::Label Label;
+	//typedef typename DataPoints::Labels Labels;
 	typedef vector<PLYElement*> Elements;
 
+	/*
+	Steps:
+	1- PARSE PLY HEADER
+	2- ASSIGN PLY PROPERTIES TO DATAPOINTS ROWS
+	3- Reserve memory for a DataPoints
+	4- Parse PLY vertex to appropriate DataPoints cols and rows 
+	5- Assemble final DataPoints
+
+	PLY organisation:
+
+	element 1 [name, size]
+		- property 1 [type, name]
+		- property 2
+		- ...
+	element 2
+		-...
+
+	*/
+
+
 	///////////////////////////
-	// PARSE PLY HEADER
+	// 1- PARSE PLY HEADER
 	bool format_defined = false;
 	bool header_processed = false;
 
@@ -1202,13 +1299,14 @@ typename PointMatcherIO<T>::DataPoints PointMatcherIO<T>::loadPLY(std::istream& 
 	getline(is, line);
 
 	if (line.find("ply") != 0) {
-		throw runtime_error(string("PLY parse error: wrong magic header, found ") + line);
+		throw runtime_error(string("PLY parse error: wrong magic header, found <") + line + string(">"));
 	}
 
 	while (!header_processed)
 	{
 		if(!getline(is, line))
 			throw runtime_error("PLY parse error: reached end of file before end of header definition");
+
 
 		if ( line.empty() )
 			continue;
@@ -1222,6 +1320,7 @@ typename PointMatcherIO<T>::DataPoints PointMatcherIO<T>::loadPLY(std::istream& 
 			continue;
 		}
 
+		// We only support ascii and ply version 1.0
 		if (keyword == "format")
 		{
 			if (format_defined)
@@ -1231,13 +1330,13 @@ typename PointMatcherIO<T>::DataPoints PointMatcherIO<T>::loadPLY(std::istream& 
 			stringstream >> format_str >> version_str;
 
 			if (format_str != "ascii" && format_str != "binary_little_endian" && format_str != "binary_big_endian")
-				throw runtime_error(string("PLY parse error: format ") + format_str + string(" is not supported"));
+				throw runtime_error(string("PLY parse error: format <") + format_str + string("> is not supported"));
 
 			if (format_str == "binary_little_endian" || format_str == "binary_big_endian")
 				throw runtime_error(string("PLY parse error: binary PLY files are not supported"));
 			if (version_str != "1.0")
 			{
-				throw runtime_error(string("PLY parse error: version ") + version_str + string(" of ply is not supported"));
+				throw runtime_error(string("PLY parse error: version <") + version_str + string("> of ply is not supported"));
 			}
 
 			format_defined = true;
@@ -1245,10 +1344,7 @@ typename PointMatcherIO<T>::DataPoints PointMatcherIO<T>::loadPLY(std::istream& 
 		}
 		else if (keyword == "element")
 		{
-			if (current_element != NULL && current_element->getNumSupportedProperties() == 0)
-			{
-				LOG_WARNING_STREAM("PLY parse warning: no supported properties in element " << current_element->name);
-			}
+			
 
 			string elem_name, elem_num_s;
 			stringstream >> elem_name >> elem_num_s;
@@ -1308,15 +1404,7 @@ typename PointMatcherIO<T>::DataPoints PointMatcherIO<T>::loadPLY(std::istream& 
 
 				PLYProperty list_prop(prop_idx_type, prop_type, prop_name, current_element->total_props);
 
-				if (current_element->supportsProperty(list_prop))
-				{
-					current_element->addProperty(list_prop);
-				}
-				else
-				{
-					LOG_WARNING_STREAM("PLY parse error: element " << current_element->name
-							<< " does not support property " << prop_name << " " << prop_type  );
-				}
+				current_element->addProperty(list_prop);
 			}
 			// PLY regular property
 			else
@@ -1325,15 +1413,7 @@ typename PointMatcherIO<T>::DataPoints PointMatcherIO<T>::loadPLY(std::istream& 
 				stringstream >> prop_name;
 				PLYProperty prop(prop_type, prop_name, current_element->total_props);
 
-				if (current_element->supportsProperty(prop))
-				{
-					current_element->addProperty(prop);
-				}
-				else
-				{
-					LOG_WARNING_STREAM("PLY parse error: element " << current_element->name <<
-							" does not support property " << prop_name << " " << prop_type  );
-				}
+				current_element->addProperty(prop);
 			}
 
 			current_element->total_props++;
@@ -1350,155 +1430,150 @@ typename PointMatcherIO<T>::DataPoints PointMatcherIO<T>::loadPLY(std::istream& 
 				throw runtime_error(string("PLY parse error: no elements defined in header"));
 			}
 
-			if (current_element != NULL && current_element->getNumSupportedProperties() == 0)
-			{
-				LOG_WARNING_STREAM("PLY parse warning: no supported properties in element " << current_element->name);
-			}
-
 			header_processed = true;
 		}
 	}
 
 	///////////////////////////
-	// PARSE PLY DATA
-	Matrix features, descriptors;
-	Labels feat_labels, desc_labels;
-
-	int l = 0; // number of elements instances that were processed
-	for (typename Elements::const_iterator el_it = elements.begin(); el_it != elements.end(); el_it++)
+	// 2- ASSIGN PLY PROPERTIES TO DATAPOINTS ROWS
+	
+	// Fetch vertex
+	PLYElement* vertex = elements[0];
+	
+	if(vertex->name != "vertex")
 	{
-		vector<PLYProperty> feature_props = (*el_it)->getFeatureProps();
-		vector<PLYProperty> descriptor_props = (*el_it)->getDescriptorProps();
-		PLYDescPropMap descriptor_map = (*el_it)->getDescPropMap();
-		const unsigned n_points = (*el_it)->num;
-		const unsigned offset = (*el_it)->offset;
-		const unsigned n_feat = (*el_it)->getNumFeatures();
-		const unsigned n_desc = (*el_it)->getNumDescriptors();
-		const unsigned n_dprop = (*el_it)->getNumDescProp();
-		int feat_offset = features.rows();
-		int desc_offset = descriptors.rows();
+		throw runtime_error(string("PLY parse error: vertex should be the first element defined."));
+	}
+		
+	// Known features and descriptors
+	const SupportedLabels & externalLabels = getSupportedExternalLabels();
+	
+	int rowIdFeatures = 0;
+	int rowIdDescriptors = 0;
+	
+	LabelGenerator featLabelGen, descLabelGen;
+	
+	// Loop through all known external names (ordered list)
+	for(size_t i=0; i<externalLabels.size(); i++)
+	{
+		const SupportedLabel & supLabel = externalLabels[i];
 
-		// map to reorder descriptor properties into consecutive rows corresponding to descriptors
-		std::map<std::string,int> descPropToRow;
-
-		// Get labels
-		for (typename vector<PLYProperty>::const_iterator it = feature_props.begin(); it != feature_props.end(); it++ )
+		//Search if that feature exist
+		for(it_PLYProp it=vertex->properties.begin(); it!=vertex->properties.end(); ++it)
 		{
-			feat_labels.push_back(Label(it->name));
-		}
-
-		int r = 0;
-		for (typename PLYDescPropMap::const_iterator it = descriptor_map.begin(); it != descriptor_map.end(); it++ )
-		{
-			desc_labels.push_back(Label(it->first,it->second.size()));
-
-			BOOST_FOREACH(PLYProperty prop, it->second )
+			if(supLabel.externalName == it->name)
 			{
-				descPropToRow[prop.name] = r;
-				r++;
-			}
-
-		}
-
-		// Allocate features and descriptors matrix
-		// If there are more than one element, grow the features matrix
-		// to accommodate new features in this element
-		features.conservativeResize(n_feat+feat_offset,n_points);
-
-		if (n_desc > 0)
-			descriptors.conservativeResize(n_dprop+desc_offset,n_points);
-
-		while (l < (offset + n_points) )
-		{
-			if(!getline(is, line))
-				throw runtime_error("PLY parse error: expected more data lines");
-
-			if ( line.empty() )
-				continue;
-
-			istringstream ss (line);
-
-			string first_word, prop_s;
-			ss >> first_word;
-
-			// ignore comment
-			if (first_word == "comment") {
-				continue;
-			}
-
-			// move to offset line
-			if (l < offset)
-			{
-				l++; // increment line count
-				continue;
-			}
-
-			unsigned f = 0; // features dimension
-			unsigned d = 0; // descriptor dimension
-
-			for (int pr = 0; f < n_feat || d < n_dprop ; pr++)
-			{
-				unsigned next_f = feature_props[f].pos; // get next supported feature property column
-				int next_d 		= 0;
-				int next_d_r 	= 0;
-				if (n_desc > 0)
+				// Assign rowId in that order
+				if(supLabel.type == FEATURE)
 				{
-					next_d 		= descriptor_props[d].pos; // get next supported descriptor property column
-					next_d_r 	= descPropToRow[descriptor_props[d].name]; // get row of next supported descriptor in desc matrix
+					it->pmRowID = rowIdFeatures;
+
+					// Prepare feature labels
+					featLabelGen.add(supLabel.internalName);
+
+					rowIdFeatures++;
+				}
+				else if (supLabel.type == DESCRIPTOR)
+				{
+					it->pmRowID = rowIdDescriptors;
+
+					// Prepare descriptor labels
+					descLabelGen.add(supLabel.internalName);
+
+					rowIdDescriptors++;
 				}
 				else
-					next_d = -1;
-
-
-				T prop_val;
-
-				if (pr > 0)
 				{
-					if(!(ss >> prop_val))
-						throw runtime_error(string("PLY parse error: at line ") + boost::lexical_cast<string>(l));
+					throw runtime_error(string("PLY parse error: encounter a type different from FEATURE and DESCRIPTOR. Implementation not supported. See the definition of 'enum PMPropTypes'"));
 				}
-				else
-					prop_val = boost::lexical_cast<T>(first_word);
+				break;
+			}
+		}
 
-				if (pr == next_f)
-				{
-					features(f+feat_offset,l-offset) = prop_val;
-					f++;
-				}
+		//TODO: Handle random descriptor names
+	}
 
-				else if (pr == next_d)
-				{
-					descriptors(next_d_r+desc_offset,l-offset) = prop_val;
-					d++;
-				}
+	///////////////////////////
+	// 3- RESERVE DATAPOINTS MEMORY
+
+	const int featDim = featLabelGen.getLabels().totalDim();
+	const int descDim = descLabelGen.getLabels().totalDim();
+	const int nbPoints = vertex->num;
+
+	Matrix features = Matrix(featDim, nbPoints);
+	Matrix descriptors = Matrix(descDim, nbPoints);
+
+
+
+	///////////////////////////
+	// 4- PARSE PLY DATA (vertex)
+	const int nbProp = vertex->total_props;
+	const int nbValues = nbPoints*nbProp;
+	int propID = 0;
+	int col = 0;
+	for(int i=0; i<nbValues; i++)
+	{
+		T value;
+		if(!(is >> value))
+		{
+			throw runtime_error(
+			(boost::format("PLY parse error: expected %1% values (%2% points with %3% properties) but only found %4% values.") % nbValues % nbPoints % nbProp % i).str());
+		}
+		else
+		{
+			const int row = vertex->properties[propID].pmRowID;
+			const PMPropTypes type = vertex->properties[propID].pmType;
+			
+			if(type == FEATURE)
+			{
+				features(row, col) = value;
+			}
+			else if(type == DESCRIPTOR)
+			{
+				descriptors(row, col) = value;
 			}
 
-			l++; // increment line count
+			++propID;
+
+			if(propID >= nbProp)
+			{
+				propID = 0;
+				++col;
+			}
 		}
 	}
 
-	// Add homogeneous coordinates padding
-	feat_labels.push_back(Label("pad"));
-	features.conservativeResize(features.rows()+1,features.cols());
-	features.row(features.rows()-1) = Vector::Ones(features.cols());
+
+
+	///////////////////////////
+	// 5- ASSEMBLE FINAL DATAPOINTS
+	
+	DataPoints loadedPoints;
 
 	if (descriptors.rows() > 0)
 	{
-		DataPoints loadedPoints(features,feat_labels,descriptors,desc_labels);
-		return loadedPoints;
+		loadedPoints = DataPoints(features, featLabelGen.getLabels(), 
+		                          descriptors,descLabelGen.getLabels());
 	}
 	else
 	{
-		DataPoints loadedPoints(features,feat_labels);
-		return loadedPoints;
+		DataPoints loadedPoints(features, featLabelGen.getLabels());
 	}
+
+	// Ensure homogeous coordinates
+	if(!loadedPoints.featureExists("pad"))
+	{
+		loadedPoints.addFeature("pad", Matrix::Ones(1,nbPoints));
+	}
+
+	return loadedPoints;
+
 }
 
 template<typename T>
 void PointMatcherIO<T>::savePLY(const DataPoints& data,
 		const std::string& fileName)
 {
-	typedef typename DataPoints::Label Label;
 	//typedef typename DataPoints::Labels Labels;
 
 	ofstream ofs(fileName.c_str());
@@ -1523,10 +1598,10 @@ void PointMatcherIO<T>::savePLY(const DataPoints& data,
 		ofs << "property float " << data.featureLabels[f].text << "\n";
 	}
 
-	for (int i = 0; i < data.descriptorLabels.size(); i++)
+	for (size_t i = 0; i < data.descriptorLabels.size(); i++)
 	{
 		Label lab = data.descriptorLabels[i];
-		for (int s = 0; s < lab.span; s++)
+		for (size_t s = 0; s < lab.span; s++)
 		{
 			ofs << "property float " << getColLabel(lab,s) << "\n";
 		}
@@ -1564,7 +1639,11 @@ void PointMatcherIO<double>::savePLY(const DataPoints& data, const std::string& 
 template<typename T>
 PointMatcherIO<T>::PLYProperty::PLYProperty(const std::string& type,
 		const std::string& name, const unsigned pos, const bool is_feature) :
-		name(name), type(type), pos(pos), is_feature(is_feature)  {
+		name(name), 
+		type(type), 
+		pos(pos), 
+		is_feature(is_feature)  
+{
 	if (plyPropTypeValid(type))
 	{
 		is_list = false;
@@ -1576,22 +1655,37 @@ PointMatcherIO<T>::PLYProperty::PLYProperty(const std::string& type,
 						+ std::string(" for property ") + name
 						+ std::string(" is invalid"));
 	}
+
+	pmType = getPMType(name);
+	pmRowID = -1;
+
 }
 
 //! @(brief) PLY property list constructor
 template<typename T>
 PointMatcherIO<T>::PLYProperty::PLYProperty(const std::string& idx_type,
 		const std::string& type, const std::string& name, const unsigned pos, const bool is_feature) :
-		name(name), type(type), idx_type(idx_type), pos(pos), is_feature(is_feature)
+		name(name), 
+		type(type), 
+		idx_type(idx_type), 
+		pos(pos), 
+		is_feature(is_feature)
 {
-	if (plyPropTypeValid(idx_type) && plyPropTypeValid(type)) {
+	if (plyPropTypeValid(idx_type) && plyPropTypeValid(type)) 
+	{
 		is_list = true;
-	} else
+	} 
+	else
+	{
 		throw std::runtime_error(
 				std::string("PLY parse error: property list type ") + idx_type
 						+ std::string(" ") + type
 						+ std::string(" for property ") + name
 						+ std::string(" is invalid"));
+	}
+
+	pmType = getPMType(name);
+	pmRowID = -1;
 }
 
 template
@@ -1606,105 +1700,28 @@ class PointMatcherIO<double>::PLYProperty;
 
 template <typename T>
 void PointMatcherIO<T>::PLYElement::addProperty(
-		PLYProperty& prop) {
-	if (supportsProperty(prop))
+		PLYProperty& prop) 
+{
+	if (prop.pmType == FEATURE)
 	{
-		//prop.is_feature = (getPMType(prop) == FEATURE);
-
-		PMPropTypes pm_type = getPMType(prop);
-
-		if (pm_type == FEATURE)
-		{
-			features.push_back(prop);
-		}
-		else if (pm_type == DESCRIPTOR)
-		{
-			DescAssociationPair associationPair = getDescAssociationPair(prop.name);
-
-			// Handle shuffling of
-			// if property is in the right order, push back to the end of vector
-			std::vector<PLYProperty>* propList = &descriptor_map[associationPair.second];
-
-			// if property is to be put in a later place, you need to resize the vector first
-			if (associationPair.first >= propList->size())
-			{
-				propList->resize(associationPair.first + 1);
-				(*propList)[associationPair.first] = prop;
-			}
-			// if to be put before, no need to resize
-			else
-				(*propList)[associationPair.first] = prop;
-
-			descriptors.push_back(prop);
-		}
-		else
-		{
-			throw std::runtime_error("PLY parse error: tried at add an unsupported property");
-		}
+		nbFeatures++;
 	}
-	else
-		throw std::runtime_error(
-				std::string("PLY parse error: property ") + prop.name
-						+ std::string(" not supported by element ") + name);
+	else if (prop.pmType == DESCRIPTOR)
+	{
+		nbDescriptors++;
+	}
+		
+	properties.push_back(prop);
 }
 
-template <typename T>
-int PointMatcherIO<T>::PLYElement::getNumFeatures() const
-{
-	return features.size();
-}
-
-template <typename T>
-int PointMatcherIO<T>::PLYElement::getNumDescriptors() const
-{
-	return descriptor_map.size();
-}
-
-template <typename T>
-int PointMatcherIO<T>::PLYElement::getNumDescProp() const
-{
-	return descriptors.size();
-}
-
-template <typename T>
-const std::vector<typename PointMatcherIO<T>::PLYProperty>& PointMatcherIO<T>::PLYElement::getFeatureProps() const
-{
-	return features;
-}
-
-template <typename T>
-const std::vector<typename PointMatcherIO<T>::PLYProperty>& PointMatcherIO<T>::PLYElement::getDescriptorProps() const
-{
-	return descriptors;
-}
-
-template <typename T>
-const typename PointMatcherIO<T>::PLYDescPropMap& PointMatcherIO<T>::PLYElement::getDescPropMap() const
-{
-	return descriptor_map;
-}
-
-template <typename T>
-size_t PointMatcherIO<T>::PLYElement::getNumSupportedProperties() const {
-	return features.size() + descriptors.size() ;
-}
 
 template <typename T>
 bool PointMatcherIO<T>::PLYElement::supportsProperty(const PLYProperty& prop) const
 {
-	return getPMType(prop) != UNSUPPORTED;
+	return getPMType(prop.name) != UNSUPPORTED;
 }
 
-template<typename T>
-typename PointMatcherIO<T>::PLYElement::PMPropTypes PointMatcherIO<T>::PLYVertex::getPMType(const PLYProperty& prop) const
-{
-	if (prop.name == "x" || prop.name == "y" || prop.name == "z")
-		return this->FEATURE;
-	else if (colLabelRegistered(prop.name))
-		return this->DESCRIPTOR;
-	else
-		return this->UNSUPPORTED;
-}
+
 
 template <typename T>
 typename PointMatcherIO<T>::PLYElementF::ElementTypes PointMatcherIO<T>::PLYElementF::getElementType(const std::string& elem_name)
@@ -1782,8 +1799,8 @@ PointMatcherIO<double>::DataPoints PointMatcherIO<double>::loadPCD(const string&
 template<typename T>
 typename PointMatcherIO<T>::DataPoints PointMatcherIO<T>::loadPCD(std::istream& is) {
 
-	typedef typename DataPoints::Label Label;
-	typedef typename DataPoints::Labels Labels;
+	//typedef typename DataPoints::Label Label;
+	//typedef typename DataPoints::Labels Labels;
 
 	size_t numFields = 0;
 	size_t numDataFields = 0; // takes into account the cound of each field for multi row descriptors
@@ -1792,7 +1809,7 @@ typename PointMatcherIO<T>::DataPoints PointMatcherIO<T>::loadPCD(std::istream& 
 	int zFieldCol = -1;
 
 	vector<int> descFieldsToKeep;
-	map<int,DescAssociationPair> colToDescPair;
+	map<int,LabelAssociationPair> colToDescPair;
 	map<string,int> descLabelToNumRows;
 	map<string,int> descLabelToStartingRows;
 	vector<int> descDimensions;
@@ -1804,7 +1821,7 @@ typename PointMatcherIO<T>::DataPoints PointMatcherIO<T>::loadPCD(std::istream& 
 	size_t width = 0;
 	size_t height = 0;
 	size_t numPoints;
-	size_t numPointsR; // redundant value specified in POINTS field
+	size_t numPointsR = 0; // redundant value specified in POINTS field
 
 	size_t lineNum = 0;
 
@@ -1846,10 +1863,10 @@ typename PointMatcherIO<T>::DataPoints PointMatcherIO<T>::loadPCD(std::istream& 
 				else if (tokens[i] == "z")
 					zFieldCol = i - 1;
 
-				else if(colLabelRegistered(tokens[i]))
+				else if(descSublabelRegistered(tokens[i]))
 				{
 					descFieldsToKeep.push_back(i);
-					DescAssociationPair associationPair = getDescAssociationPair(tokens[i]);
+					LabelAssociationPair associationPair = getDescAssociationPair(tokens[i]);
 
 					colToDescPair[i] = associationPair;
 					descLabelToNumRows[associationPair.second]++;
@@ -1909,21 +1926,21 @@ typename PointMatcherIO<T>::DataPoints PointMatcherIO<T>::loadPCD(std::istream& 
 
 			// we need to overwrite the col to desc pair since there will be more
 			// columns now that we have several data counts per field
-			map<int, DescAssociationPair> colToDescPair_ = colToDescPair;
+			map<int, LabelAssociationPair> colToDescPair_ = colToDescPair;
 			colToDescPair.clear();
 
 			vector<int>::const_iterator nextFieldToKeepIt = descFieldsToKeep.begin();
-			for (int i = 1; i < tokens.size(); i++)
+			for (size_t i = 1; i < tokens.size(); i++)
 			{
 				int count = boost::lexical_cast<int>(tokens[i]);
 
-				if (i == *nextFieldToKeepIt)
+				if ((int)i == *nextFieldToKeepIt)
 				{
 					string descLabel = colToDescPair_[i].second;
 					descLabelToNumRows[descLabel] = count;
 
 					for (int p = 0; p < count; p++)
-						colToDescPair[numDataFields + p] = DescAssociationPair(p, descLabel);
+						colToDescPair[numDataFields + p] = LabelAssociationPair(p, descLabel);
 
 					if (nextFieldToKeepIt != descFieldsToKeep.end())
 						nextFieldToKeepIt++;
@@ -2045,7 +2062,7 @@ typename PointMatcherIO<T>::DataPoints PointMatcherIO<T>::loadPCD(std::istream& 
 		} else
 			features(2,p) = 1;
 
-		for (map<int,DescAssociationPair>::const_iterator cit = colToDescPair.begin();
+		for (map<int,LabelAssociationPair>::const_iterator cit = colToDescPair.begin();
 				cit != colToDescPair.end(); cit++)
 		{
 			int startingRow = descLabelToStartingRows[cit->second.second];

@@ -124,15 +124,63 @@ PointMatcher<T>::DataPoints::DataPoints(const Matrix& features, const Labels& fe
 	descriptorLabels(descriptorLabels)
 {}
 
+//! Return the number of points contained in the point cloud
+template<typename T>
+unsigned PointMatcher<T>::DataPoints::getNbPoints() const
+{
+	return features.cols();
+}
+
+//! Return the dimension of the point cloud
+template<typename T>
+unsigned PointMatcher<T>::DataPoints::getEuclideanDim() const
+{
+	return (features.rows() - 1);
+}
+
+//! Return the dimension of the point cloud in homogeneous coordinates (one more than Euclidean dimension)
+template<typename T>
+unsigned PointMatcher<T>::DataPoints::getHomogeneousDim() const
+{
+	return features.rows();
+}
+
+//! Return the number of grouped descriptors (e.g., normals can have 3 components but would count as only one)
+template<typename T>
+unsigned PointMatcher<T>::DataPoints::getNbGroupedDescriptors() const
+{
+	return descriptorLabels.size();
+}
+
+//! Return the total number of descriptors
+template<typename T>
+unsigned PointMatcher<T>::DataPoints::getDescriptorDim() const
+{
+	return descriptors.rows();
+}
+
+
 //! Return whether two point-clouds are identical (same data and same labels)
 template<typename T>
 bool PointMatcher<T>::DataPoints::operator ==(const DataPoints& that) const
 {
-	return
-		(features == that.features) &&
-		(featureLabels == that.featureLabels) &&
-		(descriptors == that.descriptors) &&
-		(featureLabels == that.featureLabels);
+	// Note comparing matrix withou the same dimensions trigger an assert
+	bool isEqual = false;
+	if((features.rows() == that.features.rows()) &&
+		(features.cols() == that.features.cols()) &&
+		(descriptors.rows() == that.descriptors.rows()) &&
+		(descriptors.cols() == that.descriptors.cols()))
+	{
+		isEqual = (features == that.features) &&
+			(featureLabels == that.featureLabels) &&
+			(descriptors == that.descriptors) &&
+			(featureLabels == that.featureLabels);
+	}
+
+	//TODO: add time here
+
+	return isEqual;
+		
 }
 
 //! Add an other point cloud after the current one
@@ -293,11 +341,20 @@ void PointMatcher<T>::DataPoints::allocateFeatures(const Labels& newLabels)
 	allocateFields(newLabels, featureLabels, features);
 }
 
-//! Add a feature by name, remove first if already exists
+//! Add a feature by name, remove first if already exists. The 'pad' field will stay at the end for homogeneous transformation 
 template<typename T>
 void PointMatcher<T>::DataPoints::addFeature(const std::string& name, const Matrix& newFeature)
 {
+	removeFeature("pad");
 	addField(name, newFeature, featureLabels, features);
+	addField("pad", Matrix::Ones(1, features.cols()), featureLabels, features);
+}
+
+//! Remove a feature by name, the whole matrix will be copied
+template<typename T>
+void PointMatcher<T>::DataPoints::removeFeature(const std::string& name)
+{
+	removeField(name, featureLabels, features);
 }
 
 //! Get feature by name, return a matrix containing a copy of the requested feature
@@ -383,6 +440,14 @@ void PointMatcher<T>::DataPoints::addDescriptor(const std::string& name, const M
 {
 	addField(name, newDescriptor, descriptorLabels, descriptors);
 }
+
+//! Remove a descriptor by name, the whole matrix will be copied
+template<typename T>
+void PointMatcher<T>::DataPoints::removeDescriptor(const std::string& name)
+{
+	removeField(name, descriptorLabels, descriptors);
+}
+
 
 //! Get descriptor by name, return a matrix containing a copy of the requested descriptor
 template<typename T>
@@ -599,6 +664,40 @@ void PointMatcher<T>::DataPoints::addField(const std::string& name, const Matrix
 		}
 	}
 }
+//! Remove a descriptor or feature by name, no copy is done.
+template<typename T>
+void PointMatcher<T>::DataPoints::removeField(const std::string& name, Labels& labels, Matrix& data) const
+{
+
+	const unsigned deleteId = getFieldStartingRow(name, labels);
+	const unsigned span = getFieldDimension(name, labels);
+	const unsigned keepAfterId = deleteId + span;
+	const unsigned lastId = data.rows() - 1;
+	const unsigned sizeKeep = data.rows() - keepAfterId;
+	const unsigned nbPoints = data.cols();
+
+
+	// check if the data to be removed at the end
+	if(keepAfterId <= lastId)
+	{
+		data.block(deleteId, 0, sizeKeep, nbPoints) = data.block(keepAfterId, 0, sizeKeep, nbPoints);
+	}
+
+	//Remove the last rows
+	data.conservativeResize(data.rows()-span, nbPoints);
+
+	// remove label from the label list
+	for(BOOST_AUTO(it, labels.begin()); it != labels.end(); ++it)
+	{
+		if (it->text == name)
+		{
+			labels.erase(it);
+			break;
+		}
+	}
+
+}
+
 
 //! Get a const view on a matrix by name, throw an exception if it does not exist.
 //! If viewRow is given, only return this row, otherwise return the full view

@@ -36,11 +36,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "OutlierFiltersImpl.h"
 #include "PointMatcherPrivate.h"
 #include "Functions.h"
+#include "MatchersImpl.h"
 
 #include <algorithm>
 #include <vector>
 #include <iostream>
 #include <limits>
+#include <numeric>
+#include <ciso646>
 
 using namespace std;
 using namespace PointMatcherSupport;
@@ -63,7 +66,7 @@ template struct OutlierFiltersImpl<double>::NullOutlierFilter;
 template<typename T>
 OutlierFiltersImpl<T>::MaxDistOutlierFilter::MaxDistOutlierFilter(const Parameters& params):
 	OutlierFilter("MaxDistOutlierFilter", MaxDistOutlierFilter::availableParameters(), params),
-	maxDist(Parametrizable::get<T>("maxDist"))
+	maxDist(pow(Parametrizable::get<T>("maxDist"),2)) // we use the square distance later
 {
 }
 
@@ -84,7 +87,7 @@ template struct OutlierFiltersImpl<double>::MaxDistOutlierFilter;
 template<typename T>
 OutlierFiltersImpl<T>::MinDistOutlierFilter::MinDistOutlierFilter(const Parameters& params):
 	OutlierFilter("MinDistOutlierFilter", MinDistOutlierFilter::availableParameters(), params),
-	minDist(Parametrizable::get<T>("minDist"))
+	minDist(pow(Parametrizable::get<T>("minDist"),2))// Note: we use the square distance later
 {
 }
 
@@ -192,27 +195,28 @@ T OutlierFiltersImpl<T>::VarTrimmedDistOutlierFilter::optimizeInlierRatio(const 
 		throw ConvergenceError("no outlier to filter");
 			
 	std::sort(tmpSortedDist.begin(), tmpSortedDist.end());
+	std::vector<T> tmpCumSumSortedDist;
+	tmpCumSumSortedDist.reserve(points_nbr);
+	std::partial_sum(tmpSortedDist.begin(), tmpSortedDist.end(), tmpCumSumSortedDist.begin());
 
 	const int minEl = floor(this->minRatio*points_nbr);
 	const int maxEl = floor(this->maxRatio*points_nbr);
 
 	// Return std::vector to an eigen::vector
-	Eigen::Map<LineArray> sortedDist(&tmpSortedDist[0], points_nbr);
+	Eigen::Map<LineArray> sortedDist(&tmpCumSumSortedDist[0], points_nbr);
 
 	const LineArray trunkSortedDist = sortedDist.segment(minEl, maxEl-minEl);
-	const T lowerSum = sortedDist.head(minEl).sum();
+
 	const LineArray ids = LineArray::LinSpaced(trunkSortedDist.rows(), minEl+1, maxEl);
-	const LineArray ratio = ids / points_nbr;
-	const LineArray deno = ratio.pow(this->lambda);
-	const LineArray FRMS = deno.inverse().square() * ids.inverse() * (lowerSum + trunkSortedDist);
+	const LineArray ratio = ids / points_nbr; // ratio for each of element between minEl and maxEl
+	const LineArray deno = ratio.pow(this->lambda); // f^λ
+	// frms = cumSumDists[minEl:maxEl] / id / (f^λ)²
+	const LineArray FRMS = trunkSortedDist * ids.inverse() * deno.inverse().square() ;
 	int minIndex(0);// = FRMS.minCoeff();
 	FRMS.minCoeff(&minIndex);
 	const T optRatio = (float)(minIndex + minEl)/ (float)points_nbr;
 	
-	//cout << "Optimized ratio: " << optRatio << endl;
-	
 	return optRatio;
-
 }
 
 template struct OutlierFiltersImpl<float>::VarTrimmedDistOutlierFilter;
@@ -225,7 +229,7 @@ OutlierFiltersImpl<T>::SurfaceNormalOutlierFilter::SurfaceNormalOutlierFilter(co
 	eps(cos(Parametrizable::get<T>("maxAngle"))),
 	warningPrinted(false)
 {
-	//waring: eps is change to cos(maxAngle)!
+	//warning: eps is change to cos(maxAngle)!
 }
 
 template<typename T>
@@ -249,6 +253,11 @@ typename PointMatcher<T>::OutlierWeights OutlierFiltersImpl<T>::SurfaceNormalOut
 			for (int y = 0; y < w.rows(); ++y) // knn 
 			{
 				const int idRef = input.ids(y, x);
+
+				if (idRef == MatchersImpl<T>::NNS::InvalidIndex) {
+					w(y, x) = 0;
+					continue;
+				}
 
 				const Vector normalRef = normalsReference.col(idRef).normalized();
 
@@ -327,18 +336,23 @@ typename PointMatcher<T>::OutlierWeights OutlierFiltersImpl<T>::GenericDescripto
 	{
 		for(int i=0; i < readPtsCount; i++)
 		{
+			const int idRead = input.ids(k, i);
+			if (idRead == MatchersImpl<T>::NNS::InvalidIndex){
+				w(k,i) = 0;
+				continue;
+			}
 			if(useSoftThreshold == false)
 			{
 				if(useLargerThan == true)
 				{
-					if(desc(0, input.ids(k,i)) > threshold)
+					if (desc(0, idRead) > threshold)
 						w(k,i) = 1;
 					else
 						w(k,i) = 0;
 				}
 				else
 				{
-					if(desc(0, input.ids(k,i)) < threshold)
+					if (desc(0, idRead) < threshold)
 						w(k,i) = 1;
 					else
 						w(k,i) = 0;
@@ -347,7 +361,7 @@ typename PointMatcher<T>::OutlierWeights OutlierFiltersImpl<T>::GenericDescripto
 			else
 			{
 				// use soft threshold by assigning the weight using the descriptor
-				w(k,i) = desc(0, input.ids(k,i));
+				w(k,i) = desc(0, idRead);
 			}
 		}
 	}
@@ -362,4 +376,227 @@ typename PointMatcher<T>::OutlierWeights OutlierFiltersImpl<T>::GenericDescripto
 template struct OutlierFiltersImpl<float>::GenericDescriptorOutlierFilter;
 template struct OutlierFiltersImpl<double>::GenericDescriptorOutlierFilter;
 
+// RobustOutlierFilter
+template<typename T>
+typename OutlierFiltersImpl<T>::RobustOutlierFilter::RobustFctMap
+OutlierFiltersImpl<T>::RobustOutlierFilter::robustFcts = {
+	{"cauchy",  RobustFctId::Cauchy},
+	{"welsch",  RobustFctId::Welsch},
+	{"sc",      RobustFctId::SwitchableConstraint},
+	{"gm",      RobustFctId::GM},
+	{"tukey",   RobustFctId::Tukey},
+	{"huber",   RobustFctId::Huber},
+	{"L1",      RobustFctId::L1},
+	{"student", RobustFctId::Student}
+};
 
+template<typename T>
+OutlierFiltersImpl<T>::RobustOutlierFilter::RobustOutlierFilter(const std::string& className,
+		const ParametersDoc paramsDoc,
+		const Parameters& params):
+	OutlierFilter(className, paramsDoc, params),
+	robustFctName(Parametrizable::get<string>("robustFct")),
+	tuning(Parametrizable::get<T>("tuning")),
+	squaredApproximation(pow(Parametrizable::get<T>("approximation"), 2)),
+	scaleEstimator(Parametrizable::get<string>("scaleEstimator")),
+	nbIterationForScale(Parametrizable::get<int>("nbIterationForScale")),
+	distanceType(Parametrizable::get<string>("distanceType")),
+	robustFctId(-1),
+	iteration(1),
+	scale(0.0),
+	berg_target_scale(0)
+{
+	const set<string> validScaleEstimator = {"none", "mad", "berg", "std"};
+	if (validScaleEstimator.find(scaleEstimator) == validScaleEstimator.end()) {
+		throw InvalidParameter("Invalid scale estimator name.");
+	}
+	const set<string> validDistanceType = {"point2point", "point2plane"};
+	if (validDistanceType.find(distanceType) == validDistanceType.end()) {
+		throw InvalidParameter("Invalid distance type name.");
+	}
+
+	resolveEstimatorName();
+
+	if (scaleEstimator == "berg") {
+		berg_target_scale = tuning;
+
+		// See \cite{Bergstrom2014}
+		if (robustFctId == RobustFctId::Cauchy)
+		{
+			tuning = 4.3040;
+		} else if (robustFctId == RobustFctId::Tukey)
+		{
+			tuning = 7.0589;
+		} else if (robustFctId == RobustFctId::Huber)
+		{
+			tuning = 2.0138;
+		}
+	}
+}
+
+template<typename T>
+OutlierFiltersImpl<T>::RobustOutlierFilter::RobustOutlierFilter(const Parameters& params):
+	RobustOutlierFilter("RobustOutlierFilter", RobustOutlierFilter::availableParameters(), params)
+{
+}
+
+
+template<typename T>
+void OutlierFiltersImpl<T>::RobustOutlierFilter::resolveEstimatorName(){
+	if (robustFcts.find(robustFctName) == robustFcts.end())
+	{
+		throw InvalidParameter("Invalid robust function name.");
+	}
+	robustFctId = robustFcts[robustFctName];
+}
+
+	template<typename T>
+typename PointMatcher<T>::OutlierWeights OutlierFiltersImpl<T>::RobustOutlierFilter::compute(
+		const DataPoints& filteredReading,
+		const DataPoints& filteredReference,
+		const Matches& input)
+{
+	return this->robustFiltering(filteredReading, filteredReference, input);
+}
+
+
+
+template<typename T>
+typename PointMatcher<T>::Matrix
+OutlierFiltersImpl<T>::RobustOutlierFilter::computePointToPlaneDistance(
+		const DataPoints& reading,
+		const DataPoints& reference,
+		const Matches& input) {
+
+	int nbr_read_point = input.dists.cols();
+	int nbr_match = input.dists.rows();
+
+	Matrix normals = reference.getDescriptorViewByName("normals");
+
+	Vector reading_point(Vector::Zero(3));
+	Vector reference_point(Vector::Zero(3));
+	Vector normal(3);
+
+	Matrix dists(Matrix::Zero(nbr_match, nbr_read_point));
+
+	for(int i = 0; i < nbr_read_point; ++i)
+	{
+		reading_point = reading.features.block(0, i, 3, 1);
+		for(int j = 0; j < nbr_match; ++j)
+		{
+			const int reference_idx = input.ids(j, i);
+			if (reference_idx != Matches::InvalidId) {
+				reference_point = reference.features.block(0, reference_idx, 3, 1);
+
+				normal = normals.col(reference_idx).normalized();
+				// distance_point_to_plan = dot(n, p-q)²
+				dists(j, i) = pow(normal.dot(reading_point-reference_point), 2);
+			}
+		}
+	}
+
+	return dists;
+}
+
+template<typename T>
+typename PointMatcher<T>::OutlierWeights OutlierFiltersImpl<T>::RobustOutlierFilter::robustFiltering(
+		const DataPoints& filteredReading,
+		const DataPoints& filteredReference,
+		const Matches& input) {
+
+	if (scaleEstimator == "mad")
+	{
+		if (iteration <= nbIterationForScale or nbIterationForScale == 0)
+		{
+			scale = sqrt(input.getMedianAbsDeviation());
+		}
+	} else if (scaleEstimator == "std")
+	{
+		if (iteration <= nbIterationForScale or nbIterationForScale == 0)
+		{
+			scale = sqrt(input.getStandardDeviation());
+		}
+	} else if (scaleEstimator == "berg")
+	{
+		if (iteration <= nbIterationForScale or nbIterationForScale == 0)
+		{
+			// The tuning constant is the target scale that we want to reach
+			// It's a bit confusing to use the tuning constant for scaling...
+			if (iteration == 1)
+			{
+				scale = 1.9 * sqrt(input.getDistsQuantile(0.5));
+			}
+			else
+			{ // TODO: maybe add it has another parameter or make him a function of the max iteration
+				const T CONVERGENCE_RATE = 0.85;
+				scale = CONVERGENCE_RATE * (scale - berg_target_scale) + berg_target_scale;
+			}
+		}
+	}
+	else
+	{
+		scale = 1.0; // We don't rescale
+	}
+	iteration++;
+
+	Matrix dists = distanceType == "point2point" ? input.dists : computePointToPlaneDistance(filteredReading, filteredReference, input);
+
+	// e² = scaled squared distance
+	Array e2 = dists.array() / (scale * scale);
+
+	T k = tuning;
+	const T k2 = k * k;
+	Array w, aboveThres, belowThres;
+	switch (robustFctId) {
+		case RobustFctId::Cauchy: // 1/(1 + e²/k²)
+			w = (1 + e2 / k2).inverse();
+			break;
+		case RobustFctId::Welsch: // exp(-e²/k²)
+			w = (-e2 / k2).exp();
+			break;
+		case RobustFctId::SwitchableConstraint: // if e² > k then 4 * k²/(k + e²)²
+			aboveThres = 4.0 * k2 * ((k + e2).square()).inverse();
+			w = (e2 >= k).select(aboveThres, 1.0);
+			break;
+		case RobustFctId::GM:    // k²/(k + e²)²
+			w = k2*((k + e2).square()).inverse();
+			break;
+		case RobustFctId::Tukey: // if e² < k² then (1-e²/k²)²
+			belowThres = (1 - e2 / k2).square();
+			w = (e2 >= k2).select(0.0, belowThres);
+			break;
+		case RobustFctId::Huber: // if |e| >= k then k/|e| = k/sqrt(e²)
+			aboveThres = k * (e2.sqrt().inverse());
+			w = (e2 >= k2).select(aboveThres, 1.0);
+			break;
+		case RobustFctId::L1: // 1/|e| = 1/sqrt(e²)
+			w = e2.sqrt().inverse();
+			break;
+		case RobustFctId::Student: { // ....
+			const T d = 3;
+			auto p = (1 + e2 / k).pow(-(k + d) / 2);
+			w = p * (k + d) * (k + e2).inverse();
+			break;
+		}
+		default:
+			break;
+	}
+
+	// In the minimizer, zero weight are ignored, we want them to be notice by having the smallest value
+	// The value can not be a numeric limit, since they might cause a nan/inf.
+	const double ARBITRARY_SMALL_VALUE = 1e-50;
+	w = (w.array() <= ARBITRARY_SMALL_VALUE).select(ARBITRARY_SMALL_VALUE, w);
+
+
+	if(squaredApproximation != std::numeric_limits<T>::infinity())
+	{
+		//Note from Eigen documentation: (if statement).select(then matrix, else matrix)
+		w = (e2 >= squaredApproximation).select(0.0, w);
+	}
+
+	return w;
+}
+
+
+template struct OutlierFiltersImpl<float>::RobustOutlierFilter;
+template struct OutlierFiltersImpl<double>::RobustOutlierFilter;

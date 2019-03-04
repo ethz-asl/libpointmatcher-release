@@ -23,35 +23,33 @@ int main(int argc, char *argv[])
 {
 
 	if (argc < 2 || argc > 3)
-		{
-	        std::cerr << "USAGE: filterProfiler <path_to_input_cloud> <useCentroids (optional) 1 or 0>" << std::endl;
-	        return -1;
-		}
+			{
+			std::cerr << "USAGE: filterProfiler <path_to_input_cloud> <summarizationMethod (optional) 2 or 1 or 0>" << std::endl;
+			return -1;
+			}
 
 	char* useCentroid;
 	if (argc == 3) {
-		if (strcmp(argv[2],"1") != 0 && strcmp(argv[2],"0")) {
-			cerr << "param useCentroid must be 1 or 0" << endl;
-			return -1;
-		} else
-		{
-			useCentroid = argv[2];
-		}
+			if (strcmp(argv[2],"1") != 0 && strcmp(argv[2],"0")) {
+					cerr << "param useCentroid must be 1 or 0" << endl;
+					return -1;
+			} else
+			{
+					useCentroid = argv[2];
+			}
 	} else {
-		useCentroid = "1";
+			useCentroid = "1";
 	}
 
 		//setLogger(PM::get().LoggerRegistrar.create("FileLogger"));
 
 		DP in(DP::load(argv[1]));
 
-		PM::DataPointsFilter* randomSample(
-				PM::get().DataPointsFilterRegistrar.create(
-						"RandomSamplingDataPointsFilter",
-						map_list_of
-						("prob", toParam(0.5))
-				)
-		);
+		std::shared_ptr<PM::DataPointsFilter> randomSample =
+			PM::get().DataPointsFilterRegistrar.create(
+					"RandomSamplingDataPointsFilter",
+					{{"prob", toParam(0.5)}}
+			);
 
 		cout << "starting random sample filter" << endl;
 		clock_t time_a = clock();
@@ -68,17 +66,17 @@ int main(int argc, char *argv[])
 		    cout << "Performed random sampling in " << (float)(time_b - time_a)/CLOCKS_PER_SEC << " seconds" << endl;
 		}
 
-		PM::DataPointsFilter* voxelf(
-				PM::get().DataPointsFilterRegistrar.create(
-						"VoxelGridDataPointsFilter",
-						map_list_of
-						("vSizeX", "0.2")
-						("vSizeY", "0.2")
-						("vSizeZ", "0.2")
-						("useCentroid",useCentroid)
-						("averageExistingDescriptors","0")
-				)
-		);
+		std::shared_ptr<PM::DataPointsFilter> voxelf =
+			PM::get().DataPointsFilterRegistrar.create(
+					"VoxelGridDataPointsFilter",
+					{
+						{"vSizeX", "0.2"},
+						{"vSizeY", "0.2"},
+						{"vSizeZ", "0.2"},
+						{"useCentroid",useCentroid},
+						{"averageExistingDescriptors","0"}
+					}
+			);
 
 		cout << "starting voxel grid sample filter, useCentroid: " << useCentroid << endl;
 		time_a = clock();

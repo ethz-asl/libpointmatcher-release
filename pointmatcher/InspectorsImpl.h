@@ -63,6 +63,10 @@ struct InspectorsImpl
 		{
 			return "Does nothing.";
 		}
+
+		// This constructor is not required. It make the attribute className == "NullInspector" instead of 'unknown'
+		NullInspector() : Inspector("NullInspector",  ParametersDoc(), Parameters()) {}
+
 	};
 	
 	struct PerformanceInspector: public Inspector
@@ -73,11 +77,11 @@ struct InspectorsImpl
 		}
 		inline static const ParametersDoc availableParameters()
 		{
-			return boost::assign::list_of<ParameterDoc>
-				( "baseFileName", "base file name for the statistics files (if empty, disabled)", "" )
-				( "dumpPerfOnExit", "dump performance statistics to stderr on exit", "0" )
-				( "dumpStats", "dump the statistics on first and last step", "0" )
-			;
+			return {
+				{"baseFileName", "base file name for the statistics files (if empty, disabled)", ""},
+				{"dumpPerfOnExit", "dump performance statistics to stderr on exit", "0"},
+				{"dumpStats", "dump the statistics on first and last step", "0"}
+			};
 		}
 
 		const std::string baseFileName;
@@ -116,6 +120,7 @@ struct InspectorsImpl
 		const bool bDumpDataLinks;
 		const bool bDumpReading;
 		const bool bDumpReference;
+		const bool bWriteBinary;
 
 	public:
 		AbstractVTKInspector(const std::string& className, const ParametersDoc paramsDoc, const Parameters& params);
@@ -142,6 +147,8 @@ struct InspectorsImpl
 		
 		void buildColorStream(std::ostream& stream, const std::string& name, const DataPoints& cloud);
 		
+		void buildTimeStream(std::ostream& stream, const std::string& name, const DataPoints& cloud);
+		
 
 
 		Matrix padWithZeros(const Matrix m, const int expectedRow, const int expectedCols); 
@@ -156,15 +163,16 @@ struct InspectorsImpl
 		}
 		inline static const ParametersDoc availableParameters()
 		{
-			return boost::assign::list_of<ParameterDoc>
-				( "baseFileName", "base file name for the VTK files ", "point-matcher-output" )
-				( "dumpPerfOnExit", "dump performance statistics to stderr on exit", "0" )
-				( "dumpStats", "dump the statistics on first and last step", "0" )
-				( "dumpIterationInfo", "dump iteration info", "0" )
-				( "dumpDataLinks", "dump data links at each iteration", "0" ) 
-				( "dumpReading", "dump the reading cloud at each iteration", "0" )
-				( "dumpReference", "dump the reference cloud at each iteration", "0" )
-			;
+			return {
+				{"baseFileName", "base file name for the VTK files ", "point-matcher-output"},
+				{"dumpPerfOnExit", "dump performance statistics to stderr on exit", "0"},
+				{"dumpStats", "dump the statistics on first and last step", "0"},
+				{"dumpIterationInfo", "dump iteration info", "0"},
+				{"dumpDataLinks", "dump data links at each iteration", "0" },
+				{"dumpReading", "dump the reading cloud at each iteration", "0"},
+				{"dumpReference", "dump the reference cloud at each iteration", "0"},
+				{"writeBinary", "write binary VTK files", "0"}
+			};
 		}
 		
 		const std::string baseFileName;

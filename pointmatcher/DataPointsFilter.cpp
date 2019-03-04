@@ -77,17 +77,17 @@ PointMatcher<T>::DataPointsFilters::DataPointsFilters()
 template<typename T>
 PointMatcher<T>::DataPointsFilters::DataPointsFilters(std::istream& in)
 {
-    YAML::Parser parser(in);
-    YAML::Node doc;
+	YAML::Parser parser(in);
+	YAML::Node doc;
 	parser.GetNextDocument(doc);
 	
 	// Fix for issue #6: compilation on gcc 4.4.4
 	//PointMatcher<T> pm;
 	const PointMatcher & pm = PointMatcher::get();
 	
-    for(YAML::Iterator moduleIt = doc.begin(); moduleIt != doc.end(); ++moduleIt)
+	for(YAML::Iterator moduleIt = doc.begin(); moduleIt != doc.end(); ++moduleIt)
 	{
-        const YAML::Node& module(*moduleIt);
+		const YAML::Node& module(*moduleIt);
 		this->push_back(pm.REG(DataPointsFilter).createFromYAML(module));
 	}
 }
@@ -112,12 +112,12 @@ void PointMatcher<T>::DataPointsFilters::apply(DataPoints& cloud)
 	cloud.assertDescriptorConsistency();
 	const int nbPointsBeforeFilters(cloud.features.cols());
 	LOG_INFO_STREAM("Applying " << this->size() << " DataPoints filters - " << nbPointsBeforeFilters << " points in");
-
 	for (DataPointsFiltersIt it = this->begin(); it != this->end(); ++it)
 	{
 		const int nbPointsIn(cloud.features.cols());
-		if (nbPointsIn == 0)
+		if (nbPointsIn == 0) {
 			throw ConvergenceError("no points to filter");
+		}
 
 		(*it)->inPlaceFilter(cloud);
 		cloud.assertDescriptorConsistency();

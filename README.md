@@ -1,3 +1,26 @@
+## libpointmatcher (indigo) - 1.3.1-0
+
+The packages in the `libpointmatcher` repository were released into the `indigo` distro by running `/usr/bin/bloom-release libpointmatcher --rosdistro indigo --edit` on `Mon, 04 Mar 2019 23:16:36 -0000`
+
+The `libpointmatcher` package was released.
+
+Version of package(s) in repository `libpointmatcher`:
+
+- upstream repository: https://github.com/ethz-asl/libpointmatcher.git
+- release repository: https://github.com/ethz-asl/libpointmatcher-release.git
+- rosdistro version: `1.2.3-0`
+- old version: `1.2.3-0`
+- new version: `1.3.1-0`
+
+Versions of tools used:
+
+- bloom version: `0.7.2`
+- catkin_pkg version: `0.4.10`
+- rosdep version: `0.15.1`
+- rosdistro version: `0.7.2`
+- vcstools version: `0.1.40`
+
+
 ## libpointmatcher (hydro) - 1.2.3-0
 
 The packages in the `libpointmatcher` repository were released into the `hydro` distro by running `/usr/bin/bloom-release libpointmatcher --track hydro --rosdistro hydro` on `Wed, 20 May 2015 15:33:10 -0000`

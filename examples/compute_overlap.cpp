@@ -75,30 +75,20 @@ int main(int argc, char *argv[])
 		setLogger(PM::get().LoggerRegistrar.create("FileLogger"));
 
 	// Prepare transformation chain for maps
-	PM::Transformation* transformPoints;
-	transformPoints = PM::get().TransformationRegistrar.create("TransformFeatures");
-	
-	PM::Transformation* transformNormals;
-	transformNormals = PM::get().TransformationRegistrar.create("TransformNormals");
+	std::shared_ptr<PM::Transformation> rigidTransform;
+	rigidTransform = PM::get().TransformationRegistrar.create("RigidTransformation");
 	
 	PM::Transformations transformations;
-	transformations.push_back(transformPoints);
-	transformations.push_back(transformNormals);
+	transformations.push_back(rigidTransform);
 
 	DP reading, reference;
 	TP Tread = TP::Identity(4,4);
 	DP mapCloud;
 	TP Tref = TP::Identity(4,4);
 
-	//TODO: loop through all point clouds
-	//int i = 0; // reading
-	//int j = 0; // reference
-
 	unsigned startingI = 0;
-	//unsigned listSizeI = list.size();
-	//unsigned listSizeJ = list.size();
-	unsigned listSizeI = 3;
-	unsigned listSizeJ = 3;
+	unsigned listSizeI = list.size();
+	unsigned listSizeJ = list.size();
 	if(debugMode)
 	{
 		startingI = boost::lexical_cast<unsigned>(argv[2]);
@@ -131,7 +121,7 @@ int main(int argc, char *argv[])
 			}
 			else
 			{
-				cout << "ERROR: fields gTXX (ground truth) is required" << endl;
+				cout << "ERROR: fields gTXX (i.e., ground truth matrix) is required" << endl;
 				abort();
 			}
 
@@ -140,35 +130,32 @@ int main(int argc, char *argv[])
 			transformations.apply(reference, Tref);
 
 			// Preprare filters
-			PM::DataPointsFilter* subSample(
+			std::shared_ptr<PM::DataPointsFilter> subSample =
 				PM::get().DataPointsFilterRegistrar.create(
 					"RandomSamplingDataPointsFilter", 
-					map_list_of
-						("prob", "0.5")
-				)
-			);
+					{{"prob", "0.5"}}
+				);
 
-			PM::DataPointsFilter* maxDensity(
+			std::shared_ptr<PM::DataPointsFilter> maxDensity =
 				PM::get().DataPointsFilterRegistrar.create(
 					"MaxDensityDataPointsFilter"
-				)
-			);
+				);
 			
-			/*PM::DataPointsFilter* cutInHalf;
+			/*std::shared_ptr<PM::DataPointsFilter> cutInHalf;
 			cutInHalf = PM::get().DataPointsFilterRegistrar.create(
 				"MinDistDataPointsFilter", PM::Parameters({
 					{"dim", "1"},
 					{"minDist", "0"}
 				}));*/
 
-			PM::DataPointsFilter* computeDensity(
+			std::shared_ptr<PM::DataPointsFilter> computeDensity =
 				PM::get().DataPointsFilterRegistrar.create(
-					"SurfaceNormalDataPointsFilter", 
-					map_list_of
-						("knn", "20")
-						("keepDensities", "1")
-				)
-			);
+					"SurfaceNormalDataPointsFilter",
+					{
+						{"knn", "20"},
+						{"keepDensities", "1"}
+					}
+				);
 
 			reading = subSample->filter(reading);
 			reading = computeDensity->filter(reading);
@@ -195,22 +182,20 @@ int main(int argc, char *argv[])
 				// Build kd-tree
 				int knn = 20;
 				int knnAll = 50;
-				PM::Matcher* matcherSelf(
+				std::shared_ptr<PM::Matcher> matcherSelf =
 					PM::get().MatcherRegistrar.create(
 						"KDTreeMatcher",
-						map_list_of
-							("knn", toParam(knn))
-					)
-				);
+						{{"knn", toParam(knn)}}
+					);
 
-				PM::Matcher* matcherTarget(
+				std::shared_ptr<PM::Matcher> matcherTarget =
 					PM::get().MatcherRegistrar.create(
 						"KDTreeVarDistMatcher",
-						map_list_of
-							("knn", toParam(knnAll))
-							("maxDistField", "maxSearchDist")
-					)
-				);
+						{
+							{"knn", toParam(knnAll)},
+							{"maxDistField", "maxSearchDist"}
+						}
+					);
 
 				matcherSelf->init(self);
 				matcherTarget->init(target);
@@ -230,7 +215,7 @@ int main(int argc, char *argv[])
 				{
 					for(int k = 0; k < knnAll; k++)
 					{
-						if (targetMatches.dists(k, i) != numeric_limits<float>::infinity())
+						if (targetMatches.dists(k, i) != Matches::InvalidDist)
 						{
 							inlierSelf(0,i) = 1.0;
 							inlierTarget(0,targetMatches.ids(k, i)) = 1.0;
@@ -286,8 +271,14 @@ void validateArgs(int argc, char *argv[])
 {
 	if (!(argc == 2 || argc == 4))
 	{
-		cerr << "\nError in command line, usage " << argv[0] << " listOfFiles.csv <i j>" << endl;
-		cerr << "\ni and j are optional arguments. If used, only compute the overlap for those 2 point cloud ids and dump VTK files for visual inspection." << endl;
+		cerr << endl;
+		cerr << " ERROR in command line" << endl << endl; 
+		cerr << " Usage: " << argv[0] << " listOfFiles.csv <i j>" << endl;
+		cerr << " Note: 'i' and 'j' are optional arguments. If used, only compute the overlap for those 2 point cloud ids and dump VTK files for visual inspection." << endl;
+		cerr << endl;
+		cerr << " Example: " << endl;
+		cerr << "    $ " << argv[0] << " ../example/data/carCloudList.csv" << endl;
+		cerr << endl;
 		abort();
 	}
 }

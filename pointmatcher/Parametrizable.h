@@ -44,7 +44,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <boost/lexical_cast.hpp>
 #include <limits>
 #define BOOST_ASSIGN_MAX_PARAMS 6
-#include <boost/assign/list_of.hpp>
 #include <boost/assign/list_inserter.hpp>
 
 
@@ -63,6 +62,14 @@ namespace PointMatcherSupport
 		else
 			return boost::lexical_cast<Target>(arg);
 	}
+
+	//! Overloaded function for convenience
+	template<typename Target>
+	inline Target lexical_cast_scalar_to_string(const char*& arg)
+	{
+		return lexical_cast_scalar_to_string<Target>(std::string(arg));
+	}
+
 	
 	//! General case of lexical cast, use boost
 	template<typename Target, typename Source>

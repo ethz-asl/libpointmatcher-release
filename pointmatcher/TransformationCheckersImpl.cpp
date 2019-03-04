@@ -69,7 +69,10 @@ void TransformationCheckersImpl<T>::CounterTransformationChecker::check(const Tr
 	//cerr << parameters << endl;
 	
 	if (this->conditionVariables(0) >= this->limits(0))
+	{
 		iterate = false;
+		throw MaxNumIterationsReached();
+	}
 }
 
 template struct TransformationCheckersImpl<float>::CounterTransformationChecker;
@@ -116,7 +119,8 @@ void TransformationCheckersImpl<T>::DifferentialTransformationChecker::init(cons
 		rotations.push_back(Quaternion(m));
 	}
 	
-	translations.push_back(parameters.topRightCorner(parameters.rows()-1,1));
+	const unsigned int nbRows = parameters.rows()-1;
+	translations.push_back(parameters.topRightCorner(nbRows,1));
 }
 
 template<typename T>
@@ -125,7 +129,8 @@ void TransformationCheckersImpl<T>::DifferentialTransformationChecker::check(con
 	typedef typename PointMatcher<T>::ConvergenceError ConvergenceError;
 	
 	rotations.push_back(Quaternion(Eigen::Matrix<T,3,3>(parameters.topLeftCorner(3,3))));
-	translations.push_back(parameters.topRightCorner(parameters.rows()-1,1));
+	const unsigned int nbRows = parameters.rows()-1;
+	translations.push_back(parameters.topRightCorner(nbRows,1));
 	
 	this->conditionVariables.setZero(2);
 	if(rotations.size() > smoothLength)
@@ -185,7 +190,8 @@ void TransformationCheckersImpl<T>::BoundTransformationChecker::init(const Trans
 	else
 		throw runtime_error("BoundTransformationChecker only works in 2D or 3D");
 		
-	initialTranslation = parameters.topRightCorner(parameters.rows()-1,1);
+	const unsigned int nbRows = parameters.rows()-1;
+	initialTranslation = parameters.topRightCorner(nbRows,1);
 }
 
 template<typename T>
@@ -205,7 +211,8 @@ void TransformationCheckersImpl<T>::BoundTransformationChecker::check(const Tran
 	}
 	else
 		assert(false);
-	const Vector currentTranslation = parameters.topRightCorner(parameters.rows()-1,1);
+	const unsigned int nbRows = parameters.rows()-1;
+	const Vector currentTranslation = parameters.topRightCorner(nbRows,1);
 	this->conditionVariables(1) = (currentTranslation - initialTranslation).norm();
 	if (this->conditionVariables(0) > this->limits(0) || this->conditionVariables(1) > this->limits(1))
 	{
